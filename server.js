@@ -1,5 +1,5 @@
 const express = require('express');
-const cors = require('cors'); // Permitir peticiones del frontend
+const cors = require('cors'); 
 const userRoutes = require('./routes/userRoutes');
 const authRoutes = require('./routes/authRoutes');
 
@@ -10,7 +10,6 @@ app.use(cors({ origin: "*"}));
 app.use('/api', userRoutes);
 app.use('/api/auth', authRoutes);
 
-// 🔹 Imprimir todas las rutas registradas en Express
 app._router.stack.forEach(function (r) {
     if (r.route && r.route.path) {
       console.log(`Ruta registrada: ${r.route.path}`);
