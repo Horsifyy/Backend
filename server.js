@@ -1,22 +1,24 @@
-require('dotenv').config();
 const express = require('express');
-const cors = require('cors');
+const cors = require('cors'); // Permitir peticiones del frontend
 const userRoutes = require('./routes/userRoutes');
-const authRoutes = require('./routes/authRoutes'); // Importar rutas de autenticación
+const authRoutes = require('./routes/authRoutes');
 
 const app = express();
-const port = process.env.PORT || 5000;
-
-app.use(cors());
 app.use(express.json());
+app.use(cors({ origin: "*"}));
 
-app.use('/users', userRoutes);
-app.use('/auth', authRoutes); // Registrar rutas de autenticación
+app.use('/api', userRoutes);
+app.use('/api/auth', authRoutes);
 
-app.get('/', (req, res) => {
-    res.send('API funcionando correctamente');
-});
+// 🔹 Imprimir todas las rutas registradas en Express
+app._router.stack.forEach(function (r) {
+    if (r.route && r.route.path) {
+      console.log(`Ruta registrada: ${r.route.path}`);
+    }
+  });
+  
 
-app.listen(port, () => {
-    console.log(`Servidor corriendo en http://localhost:${port}`);
+const PORT = process.env.PORT || 5000;
+app.listen(PORT, "0.0.0.0", () => {
+  console.log(`Servidor corriendo en http://192.168.2.20:${PORT}`);
 });
