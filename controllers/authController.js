@@ -84,15 +84,44 @@ const login = async (req, res) => {
 
 const resetPassword = async (req, res) => {
     try {
-        const { email } = req.body;
+        const { email, newPassword } = req.body;
 
-        await auth.generatePasswordResetLink(email);
+        if (!email || !newPassword) {
+            return res.status(400).json({ error: "El correo y la nueva contraseña son obligatorios." });
+        }
 
-        res.status(200).json({ message: 'Correo de recuperación enviado' });
+
+        const user = await getAuth().getUserByEmail(email);
+        if (!user) {
+            return res.status(404).json({ error: "Usuario no encontrado." });
+        }
+        
+        const userRef = admin.firestore().collection("users").doc(user.uid);
+        const userDoc = await userRef.get();
+
+        if (!userDoc.exists) {
+            console.log("⚠️ Usuario no encontrado en Firestore. Creando perfil...");
+
+            await userRef.set({
+                name: user.displayName || "Usuario Sin Nombre",
+                email: user.email,
+                role: "Estudiante", // O ajusta el rol según tu lógica
+                createdAt: admin.firestore.FieldValue.serverTimestamp(),
+            });
+        }
+
+        await getAuth().updateUser(user.uid, { password: newPassword });
+        await userRef.update({ lastPasswordReset: new Date().toISOString() });
+
+        res.status(200).json({
+            message: "La contraseña ha sido restablecida. Vuelve a iniciar sesión.",
+        });
     } catch (error) {
+        console.error("Error en la recuperación de contraseña:", error);
         res.status(500).json({ error: error.message });
     }
 };
+
 
 module.exports = { register, login, resetPassword };
 
