@@ -3,13 +3,13 @@ const { registerEvaluation, getPerformanceMetrics, generateReport } = require(".
 
 const router = express.Router();
 
-// Ruta para registrar una evaluación según el Método LUPE
+// Ruta para registrar una evaluaciï¿½n segï¿½n el Mï¿½todo LUPE
 router.post("/evaluations", registerEvaluation);
 
-// Ruta para obtener métricas de desempeño de un estudiante
+// Ruta para obtener mï¿½tricas de desempeï¿½o de un estudiante
 router.get("/evaluations/metrics/:studentId", getPerformanceMetrics);
 
-// Ruta para generar un reporte de evaluación y progreso
+// Ruta para generar un reporte de evaluaciï¿½n y progreso
 router.get("/evaluations/report/:studentId", generateReport);
 
 module.exports = router;
