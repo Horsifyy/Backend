@@ -3,23 +3,24 @@ const admin = require("firebase-admin");
 // Registrar una evaluación según el Método LUPE
 const registerEvaluation = async (req, res) => {
     try {
-        const { studentId, lupeLevel, equilibrio, conduccion, equitacionCentrada, comments } = req.body;
+        const { studentId, lupeLevel, balance, conduccion, equitacionCentrada, feedbackEntrenador, comments } = req.body;
 
-        if (!studentId || !lupeLevel || equilibrio === undefined || conduccion === undefined || equitacionCentrada === undefined) {
+        if (!studentId || !lupeLevel || balance === undefined || conduccion === undefined || equitacionCentrada === undefined) {
             return res.status(400).json({ error: "Todos los campos son obligatorios" });
         }
 
-        const totalScore = equilibrio + conduccion + equitacionCentrada;
+        const totalScore = balance + conduccion + equitacionCentrada;
 
         const evaluation = {
             studentId,
             lupeLevel,
             criteria: {
-                equilibrio,
-                conduccion,
-                equitacionCentrada
+                balance,  // Balance y equilibrio (nivel amarillo)
+                conduccion,  // Conducción emocional (nivel azul)
+                equitacionCentrada  // Equitación centrada (nivel rojo)
             },
             totalScore,
+            feedbackEntrenador,
             comments,
             createdAt: admin.firestore.FieldValue.serverTimestamp()
         };
@@ -49,20 +50,24 @@ const getPerformanceMetrics = async (req, res) => {
 
         let totalEvaluations = 0;
         let totalScore = 0;
-        let promedioEquilibrio = 0;
+        let promedioBalance = 0;
         let promedioConduccion = 0;
         let promedioEquitacion = 0;
+        let feedbackList = [];
 
         snapshot.forEach(doc => {
             const data = doc.data();
             totalEvaluations++;
             totalScore += data.totalScore || 0;
 
-            // Validamos que el campo "criteria" exista antes de acceder a sus valores
             if (data.criteria) {
-                promedioEquilibrio += data.criteria.equilibrio || 0;
+                promedioBalance += data.criteria.balance || 0;
                 promedioConduccion += data.criteria.conduccion || 0;
                 promedioEquitacion += data.criteria.equitacionCentrada || 0;
+            }
+
+            if (data.feedbackEntrenador) {
+                feedbackList.push(data.feedbackEntrenador);
             }
         });
 
@@ -70,9 +75,10 @@ const getPerformanceMetrics = async (req, res) => {
             studentId,
             totalEvaluations,
             averageScore: totalEvaluations > 0 ? totalScore / totalEvaluations : 0,
-            averageEquilibrio: totalEvaluations > 0 ? promedioEquilibrio / totalEvaluations : 0,
+            averageBalance: totalEvaluations > 0 ? promedioBalance / totalEvaluations : 0,
             averageConduccion: totalEvaluations > 0 ? promedioConduccion / totalEvaluations : 0,
-            averageEquitacion: totalEvaluations > 0 ? promedioEquitacion / totalEvaluations : 0
+            averageEquitacion: totalEvaluations > 0 ? promedioEquitacion / totalEvaluations : 0,
+            feedbackList
         });
 
     } catch (error) {
@@ -80,14 +86,11 @@ const getPerformanceMetrics = async (req, res) => {
     }
 };
 
-
 // Generar un reporte de evaluación y progreso
 const generateReport = async (req, res) => {
     try {
         const { studentId } = req.params;
         const evaluationsRef = admin.firestore().collection("evaluations");
-        
-        // Eliminamos el .orderBy("createdAt", "desc") para evitar el problema del índice compuesto
         const snapshot = await evaluationsRef.where("studentId", "==", studentId).get();
 
         if (snapshot.empty) {
@@ -117,4 +120,3 @@ module.exports = {
     getPerformanceMetrics,
     generateReport
 };
-
