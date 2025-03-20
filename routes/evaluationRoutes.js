@@ -1,15 +1,19 @@
 const express = require("express");
-const { registerEvaluation, getPerformanceMetrics, generateReport } = require("../controllers/evaluationController");
+const { 
+    registerEvaluation, 
+    getAllEvaluations, 
+    getEvaluationById, 
+    updateEvaluation, 
+    deleteEvaluation 
+} = require("../controllers/evaluationController");
 
 const router = express.Router();
 
-// Ruta para registrar una evaluación según el Método LUPE
-router.post("/", registerEvaluation);
-
-// Ruta para obtener métricas de desempeño de un estudiante
-router.get("/metrics/:studentId", getPerformanceMetrics);
-
-// Ruta para generar un reporte de evaluación y progreso
-router.get("/report/:studentId", generateReport);
+// 🔹 Rutas para evaluaciones
+router.post("/", registerEvaluation);  // Registrar una evaluación
+router.get("/", getAllEvaluations);  // Obtener todas las evaluaciones
+router.get("/:id", getEvaluationById);  // Obtener una evaluación por ID
+router.put("/:id", updateEvaluation);  // Actualizar una evaluación
+router.delete("/:id", deleteEvaluation);  // Eliminar una evaluación
 
 module.exports = router;
