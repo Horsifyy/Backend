@@ -4,7 +4,9 @@ const {
     getAllEvaluations, 
     getEvaluationById, 
     updateEvaluation, 
-    deleteEvaluation 
+    deleteEvaluation,
+    getStudentMetrics,
+    getPreviousEvaluations
 } = require("../controllers/evaluationController");
 
 const router = express.Router();
@@ -15,5 +17,7 @@ router.get("/", getAllEvaluations);  // Obtener todas las evaluaciones
 router.get("/:id", getEvaluationById);  // Obtener una evaluación por ID
 router.put("/:id", updateEvaluation);  // Actualizar una evaluación
 router.delete("/:id", deleteEvaluation);  // Eliminar una evaluación
+router.get("/students/:studentId/metrics", getStudentMetrics);
+router.get("/students/:studentId/evaluations", getPreviousEvaluations);
 
 module.exports = router;
