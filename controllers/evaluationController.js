@@ -90,129 +90,84 @@ const deleteEvaluation = async (req, res) => {
     }
 };
 
-// 🔹 Obtener métricas del estudiante (nuevo endpoint)
 const getStudentMetrics = async (req, res) => {
-    try {
-        const { studentId } = req.params;
-        
-        if (!studentId) {
-            return res.status(400).json({ error: "ID de estudiante requerido" });
-        }
-        
-        // Obtener el documento del estudiante para confirmar nivel LUPE
-        const studentDoc = await admin.firestore().collection("students").doc(studentId).get();
-        
-        if (!studentDoc.exists) {
-            return res.status(404).json({ error: "Estudiante no encontrado" });
-        }
-        
-        const studentData = studentDoc.data();
-        const lupeLevel = studentData.lupeLevel || "No asignado";
-        
-        // Obtener las evaluaciones del estudiante ordenadas por fecha
-        const evaluationsSnapshot = await admin.firestore()
-            .collection("evaluations")
-            .where("studentId", "==", studentId)
-            .orderBy("createdAt", "desc")
-            .limit(10)
-            .get();
-        
-        // Si no hay evaluaciones, devolver datos predeterminados
-        if (evaluationsSnapshot.empty) {
-            return res.status(200).json({
-                averageScore: "0.00",
-                metrics: [
-                    { name: "Control del caballo", value: "0" },
-                    { name: "Postura", value: "0" },
-                    { name: "Movimientos corporales", value: "0" },
-                    { name: "Control de la respiración", value: "0" }
-                ]
-            });
-        }
-        
-        // Procesar últimas evaluaciones para obtener métricas
-        const evaluations = evaluationsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        const latestEvaluation = evaluations[0]; // La más reciente
-        
-        // Calcular puntuación promedio basada en nivel LUPE
-        let metrics = [];
-        let totalScore = 0;
-        let count = 0;
-        
-        if (lupeLevel === "Amarillo") {
-            // Métricas para nivel Amarillo
-            if (latestEvaluation.balanceYEquilibrio) {
-                const balanceData = latestEvaluation.balanceYEquilibrio;
-                
-                // Extraer métricas relevantes según el nivel
-                metrics = [
-                    { name: "Control del caballo", value: String(balanceData.controlCaballo || 0) },
-                    { name: "Postura", value: String(balanceData.postura || 0) },
-                    { name: "Movimientos corporales", value: String(balanceData.movimientosCorporales || 0) },
-                    { name: "Control de la respiración", value: String(balanceData.controlRespiracion || 0) }
-                ];
-                
-                // Calcular puntuación promedio
-                const values = metrics.map(m => parseFloat(m.value) || 0);
-                totalScore = values.reduce((sum, val) => sum + val, 0);
-                count = values.length;
-            }
-        } else if (lupeLevel === "Azul") {
-            // Métricas para nivel Azul
-            if (latestEvaluation.conduccion) {
-                const conduccionData = latestEvaluation.conduccion;
-                
-                metrics = [
-                    { name: "Técnica de riendas", value: String(conduccionData.tecnicaRiendas || 0) },
-                    { name: "Apoyos", value: String(conduccionData.apoyos || 0) },
-                    { name: "Transiciones", value: String(conduccionData.transiciones || 0) },
-                    { name: "Figuras", value: String(conduccionData.figuras || 0) }
-                ];
-                
-                const values = metrics.map(m => parseFloat(m.value) || 0);
-                totalScore = values.reduce((sum, val) => sum + val, 0);
-                count = values.length;
-            }
-        } else if (lupeLevel === "Rojo") {
-            // Métricas para nivel Rojo
-            if (latestEvaluation.equitacionCentrada) {
-                const centradaData = latestEvaluation.equitacionCentrada;
-                
-                metrics = [
-                    { name: "Equilibrio", value: String(centradaData.equilibrio || 0) },
-                    { name: "Armonía", value: String(centradaData.armonia || 0) },
-                    { name: "Expresión", value: String(centradaData.expresion || 0) },
-                    { name: "Precisión", value: String(centradaData.precision || 0) }
-                ];
-                
-                const values = metrics.map(m => parseFloat(m.value) || 0);
-                totalScore = values.reduce((sum, val) => sum + val, 0);
-                count = values.length;
-            }
-        }
-        
-        // Si no se encontraron métricas específicas, usar valores predeterminados
-        if (metrics.length === 0) {
-            metrics = [
-                { name: "Control del caballo", value: "0" },
-                { name: "Postura", value: "0" },
-                { name: "Movimientos corporales", value: "0" },
-                { name: "Control de la respiración", value: "0" }
-            ];
-        }
-        
-        // Calcular puntuación promedio
-        const averageScore = count > 0 ? (totalScore / count).toFixed(2) : "0.00";
-        
-        res.status(200).json({
-            averageScore,
-            metrics
-        });
-    } catch (error) {
-        console.error("Error al obtener métricas:", error);
-        res.status(500).json({ error: error.message });
+    const { studentId } = req.params;
+  
+    // Validación
+    if (!studentId) {
+      return res.status(400).json({ error: "ID de estudiante requerido" });
     }
-};
+  
+    // Obtener evaluaciones
+    const evaluationsSnapshot = await admin.firestore()
+      .collection("evaluations")
+      .where("studentId", "==", studentId)
+      .orderBy("createdAt", "desc")
+      .limit(1)
+      .get();
+  
+    if (evaluationsSnapshot.empty) {
+      return res.status(200).json({
+        averageScore: "0.00",
+        metrics: [
+          { name: "Control del caballo", value: "0" },
+          { name: "Postura", value: "0" },
+          { name: "Movimientos corporales", value: "0" },
+          { name: "Control de la respiración", value: "0" }
+        ]
+      });
+    }
+  
+    const latestEvaluation = evaluationsSnapshot.docs[0].data();
+    const lupeLevel = latestEvaluation.lupeLevel || "No asignado";
+  
+    // Cálculo de métricas
+    const metrics = calculateMetrics(latestEvaluation, lupeLevel);
+    
+    const averageScore = calculateAverageScore(metrics);
+  
+    res.status(200).json({
+      averageScore,
+      metrics,
+    });
+  };
+  
+  function calculateMetrics(evaluation, lupeLevel) {
+    let metrics = [];
+    switch (lupeLevel) {
+      case "Amarillo":
+        metrics = [
+          { name: "Equilibrio estático", value: evaluation.balanceYEquilibrio },
+          { name: "Equilibrio dinámico", value: evaluation.balanceYEquilibrio * 0.9 },
+          { name: "Control postural", value: evaluation.balanceYEquilibrio * 0.8 },
+          { name: "Estabilidad", value: evaluation.balanceYEquilibrio * 0.7 }
+        ];
+        break;
+      case "Azul":
+        metrics = [
+          { name: "Control del caballo", value: evaluation.conduccion },
+          { name: "Precisión de movimientos", value: evaluation.conduccion * 0.9 },
+          { name: "Comunicación con el caballo", value: evaluation.conduccion * 0.8 },
+          { name: "Fluidez de movimientos", value: evaluation.conduccion * 0.7 }
+        ];
+        break;
+      case "Rojo":
+        metrics = [
+          { name: "Postura", value: evaluation.equitacionCentrada },
+          { name: "Movimientos corporales", value: evaluation.equitacionCentrada * 0.9 },
+          { name: "Respiración", value: evaluation.equitacionCentrada * 0.8 },
+          { name: "Alineamiento", value: evaluation.equitacionCentrada * 0.7 }
+        ];
+        break;
+    }
+    return metrics;
+  }
+  
+  function calculateAverageScore(metrics) {
+    const totalScore = metrics.reduce((acc, metric) => acc + parseFloat(metric.value), 0);
+    return (totalScore / metrics.length).toFixed(2);
+  }
+  
 
 // 🔹 Obtener evaluaciones previas del estudiante
 const getPreviousEvaluations = async (req, res) => {
