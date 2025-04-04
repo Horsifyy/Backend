@@ -1,12 +1,15 @@
-const admin = require('firebase-admin');
-const { getFirestore } = require('firebase-admin/firestore');
+// config/firebase.js
+const admin = require("firebase-admin");
+const { getFirestore } = require("firebase-admin/firestore");
+const serviceAccount = require("../firebase-credentials.json"); // ✅ Ruta correcta
 
-const serviceAccount = require('./firebase-credentials.json');
-
+// 🔹 Inicializar solo si no está inicializado
 if (!admin.apps.length) {
   admin.initializeApp({
-      credential: admin.credential.cert(serviceAccount),
+    credential: admin.credential.cert(serviceAccount),
   });
 }
 
-module.exports = admin;
+const db = getFirestore();
+
+module.exports = { admin, db };
