@@ -7,8 +7,10 @@ const {
 
 const router = express.Router();
 
-router.post("/", scheduleClass);  // Programar clase
+
 router.get("/", getAllScheduledClasses);  // Profesor ve todas las clases
+router.post("/", scheduleClass);  // Programar clase
 router.get("/student/:studentId", getClassesByStudent);  // Estudiante ve sus clases
+
 
 module.exports = router;

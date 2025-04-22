@@ -1,4 +1,4 @@
-const { db } = require("../config/firebase");
+const { db } = require("../firebase");
 const admin = require("firebase-admin");
 
 // 🔹 Programar una clase (estudiante)

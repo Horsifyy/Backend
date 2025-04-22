@@ -1,7 +1,7 @@
 // server.js
 const express = require("express");
 const cors = require("cors");
-const { admin } = require("./config/firebase"); // ✅ Usa la instancia exportada
+const { admin } = require("./firebase"); // ✅ Ajustado a la ruta correcta
 const userRoutes = require("./routes/userRoutes");
 const authRoutes = require("./routes/authRoutes");
 const evaluationRoutes = require("./routes/evaluationRoutes");
@@ -17,7 +17,8 @@ app.use(cors({ origin: "*" }));
 app.use("/api/users", userRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/evaluations", evaluationRoutes);
-app.use("/classes", classRoutes);
+app.use("/api/classes", classRoutes);
+
 
 // Mostrar rutas registradas
 app._router.stack.forEach((r) => {
