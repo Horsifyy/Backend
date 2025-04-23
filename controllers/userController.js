@@ -7,7 +7,7 @@ const getUsers = async (req, res) => {
     const { role } = req.query; // Permite filtrar por rol
 
     let usersRef = db.collection("users");
-    
+
     if (role) {
       if (role !== "Estudiante" && role !== "Docente") {
         return res.status(400).json({ error: "Rol inválido. Usa 'Estudiante' o 'Docente'." });
@@ -43,6 +43,7 @@ const getUserById = async (req, res) => {
   }
 };
 
+// Crear un nuevo usuario
 const createUser = async (req, res) => {
   try {
     const { uid, name, email, role, lupeLevel } = req.body;
@@ -83,6 +84,33 @@ const createUser = async (req, res) => {
   }
 };
 
+// Editar perfil de usuario (solo name y email)
+const editUserProfile = async (req, res) => {
+  try {
+    const { userId } = req.params; // Tomamos el userId de los parámetros de la ruta
+    const { name, email } = req.body; // Los nuevos datos a actualizar (solo name y email)
+
+    // Verificamos que al menos uno de los campos (name o email) esté presente
+    if (!name && !email) {
+      return res.status(400).json({ error: "Debes proporcionar al menos un campo para actualizar" });
+    }
+
+    const updateData = {};
+
+    // Solo permitimos actualizar el nombre y el correo
+    if (name) updateData.name = name;
+    if (email) updateData.email = email;
+
+    // Obtenemos el documento del usuario en Firestore y lo actualizamos
+    const userRef = db.collection("users").doc(userId);
+    await userRef.update(updateData);
+
+    res.status(200).json({ message: "Perfil actualizado con éxito" });
+  } catch (error) {
+    console.error("Error al actualizar perfil de usuario:", error);
+    res.status(500).json({ error: "Error al actualizar perfil" });
+  }
+};
 
 // Middleware para verificar el token de Firebase
 const verifyToken = async (req, res, next) => {
@@ -109,4 +137,4 @@ const verifyToken = async (req, res, next) => {
   }
 };
 
-module.exports = { getUsers, getUserById, createUser, verifyToken };
+module.exports = { getUsers, getUserById, createUser, editUserProfile, verifyToken };
