@@ -1,23 +1,32 @@
+// routes/evaluationRoutes.js
+
 const express = require("express");
-const { 
-    registerEvaluation, 
-    getAllEvaluations, 
-    getEvaluationById, 
-    updateEvaluation, 
-    deleteEvaluation,
-    getStudentMetrics,
-    getPreviousEvaluations
+const {
+  registerEvaluation,
+  getAllEvaluations,
+  getEvaluationById,
+  updateEvaluation,
+  deleteEvaluation,
+  getStudentMetrics,
+  getPreviousEvaluations,
+  getExercisesByLevel,   // Asegúrate de exportar esto desde evaluationController.js
+  getMetricsByLevel,
 } = require("../controllers/evaluationController");
 
 const router = express.Router();
 
-// 🔹 Rutas para evaluaciones
-router.post("/", registerEvaluation);  // Registrar una evaluación
-router.get("/", getAllEvaluations);  // Obtener todas las evaluaciones
-router.get("/:id", getEvaluationById);  // Obtener una evaluación por ID
-router.put("/:id", updateEvaluation);  // Actualizar una evaluación
+// 🔹 Rutas específicas (antes de la genérica '/:id')
+router.post("/", registerEvaluation);                                 // Registrar una evaluación
+router.get("/", getAllEvaluations);                                   // Obtener todas las evaluaciones
+router.get("/exercises/:level", getExercisesByLevel);                 // Obtener ejercicios por nivel
+router.get("/students/:studentId/metrics", getStudentMetrics);        // Métricas de un estudiante
+router.get("/students/:studentId/evaluations", getPreviousEvaluations); // Historial de evaluaciones
+router.get('/metrics/:level',      getMetricsByLevel); 
+
+// 🔹 Rutas basadas en ID
+router.get("/:id", getEvaluationById);    // Obtener una evaluación por ID
+router.put("/:id", updateEvaluation);     // Actualizar una evaluación
 router.delete("/:id", deleteEvaluation);  // Eliminar una evaluación
-router.get("/students/:studentId/metrics", getStudentMetrics);
-router.get("/students/:studentId/evaluations", getPreviousEvaluations);
 
 module.exports = router;
+
