@@ -19,9 +19,11 @@ const router = express.Router();
 router.post("/", registerEvaluation);                                 // Registrar una evaluación
 router.get("/", getAllEvaluations);                                   // Obtener todas las evaluaciones
 router.get("/exercises/:level", getExercisesByLevel);                 // Obtener ejercicios por nivel
+router.get('/metrics/:level', getMetricsByLevel); 
 router.get("/students/:studentId/metrics", getStudentMetrics);        // Métricas de un estudiante
 router.get("/students/:studentId/evaluations", getPreviousEvaluations); // Historial de evaluaciones
-router.get('/metrics/:level',      getMetricsByLevel); 
+
+router.get("/history/:studentId", getPreviousEvaluations);    // Historial con ?range=week|month
 
 // 🔹 Rutas basadas en ID
 router.get("/:id", getEvaluationById);    // Obtener una evaluación por ID

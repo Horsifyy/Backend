@@ -1,4 +1,5 @@
 const admin = require("firebase-admin");
+const db = admin.firestore(); 
 
 // Listado de ejercicios por nivel
 const EXERCISES = {
@@ -63,6 +64,8 @@ const registerEvaluation = async (req, res) => {
       return res.status(400).json({ error: "studentId y lupeLevel son obligatorios" });
     }
 
+    const averageScore = calculateAverageScore(metrics || {});
+
     // Asegúrate de que no haya datos undefined
     let evaluation = {
       studentId,
@@ -70,6 +73,7 @@ const registerEvaluation = async (req, res) => {
       exercises: exercises || [],  // Guardar los ejercicios seleccionados
       metrics: metrics || {},      // Guardar las calificaciones de métricas
       comments: comments || '',    // Si no hay comentarios, asignar cadena vacía
+      averageScore: averageScore,
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
     };
 
@@ -241,34 +245,55 @@ function calculateMetrics(evaluation, lupeLevel) {
 }
 
 function calculateAverageScore(metrics) {
-  const total = metrics.reduce((sum, m) => sum + parseFloat(m.value), 0);
-  return (total / metrics.length).toFixed(2);
+  const total = Object.values(metrics).reduce((sum, v) => sum + parseFloat(v), 0);
+  return (total / Object.values(metrics).length).toFixed(2);
 }
 
-// 🔹 Obtener evaluaciones previas del estudiante
 const getPreviousEvaluations = async (req, res) => {
   try {
     const { studentId } = req.params;
+    const { range } = req.query; // puede ser "week" o "month"
+
     if (!studentId) {
-      return res.status(400).json({ error: "ID de estudiante requerido" });
+      return res.status(400).json({ error: 'Student ID is required' });
     }
 
-    const snapshot = await admin.firestore()
-      .collection("evaluations")
-      .where("studentId", "==", studentId)
-      .orderBy("createdAt", "desc")
-      .get();
+    let startDate = null;
+    const now = new Date();
+
+    if (range === 'week') {
+      startDate = new Date(now.setDate(now.getDate() - 7));
+    } else if (range === 'month') {
+      startDate = new Date(now.setMonth(now.getMonth() - 1));
+    }
+
+    let query = db.collection('evaluations')
+      .where('studentId', '==', studentId)
+      .orderBy('createdAt', 'desc');
+
+    if (startDate) {
+      query = query.where('createdAt', '>=', admin.firestore.Timestamp.fromDate(startDate));
+    }
+
+    const snapshot = await query.get();
+
+    if (snapshot.empty) {
+      return res.status(200).json([]); // No es error, solo lista vacía
+    }
 
     const evaluations = snapshot.docs.map(doc => {
       const data = doc.data();
-      const createdAt = data.createdAt ? data.createdAt.toDate().toISOString() : null;
-      return { id: doc.id, ...data, createdAt };
+      return {
+        id: doc.id,
+        ...data,
+        createdAt: data.createdAt?.toDate?.().toISOString() || null
+      };
     });
 
     res.status(200).json(evaluations);
   } catch (error) {
-    console.error("Error al obtener evaluaciones previas:", error);
-    res.status(500).json({ error: error.message });
+    console.error('Error fetching evaluations:', error);
+    res.status(500).json({ error: 'Error fetching evaluations' });
   }
 };
 
