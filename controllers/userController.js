@@ -25,7 +25,6 @@ const getUsers = async (req, res) => {
   }
 };
 
-
 // Obtener usuario por UID
 const getUserById = async (req, res) => {
   try {
@@ -37,11 +36,22 @@ const getUserById = async (req, res) => {
       return res.status(404).json({ error: 'Usuario no encontrado' });
     }
 
-    res.status(200).json(userDoc.data());
+    // Obtener los datos del usuario y incluir el campo 'lupeLevel' si es un estudiante
+    const userData = userDoc.data();
+    const responseData = {
+      id: uid,
+      name: userData.name,
+      email: userData.email,
+      role: userData.role,
+      lupeLevel: userData.lupeLevel || null  // Solo si es un estudiante
+    };
+
+    res.status(200).json(responseData);
   } catch (error) {
     res.status(500).json({ error: 'Error al obtener el usuario' });
   }
 };
+
 
 const createUser = async (req, res) => {
   try {
@@ -109,4 +119,32 @@ const verifyToken = async (req, res, next) => {
   }
 };
 
-module.exports = { getUsers, getUserById, createUser, verifyToken };
+// Obtener datos del usuario autenticado
+const getCurrentUser = async (req, res) => {
+  try {
+    const uid = req.user.uid; // viene del middleware verifyToken
+    const userRef = db.collection('users').doc(uid);
+    const userDoc = await userRef.get();
+
+    if (!userDoc.exists) {
+      return res.status(404).json({ error: 'Usuario no encontrado' });
+    }
+
+    const data = userDoc.data();
+    const response = {
+      id: uid,
+      name: data.name,
+      email: data.email,
+      role: data.role,
+      lupeLevel: data.lupeLevel || null,
+    };
+
+    res.status(200).json(response);
+  } catch (error) {
+    console.error('Error al obtener el usuario autenticado:', error);
+    res.status(500).json({ error: 'Error al obtener datos del usuario' });
+  }
+};
+
+
+module.exports = { getUsers, getUserById, createUser, verifyToken, getCurrentUser };

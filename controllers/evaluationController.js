@@ -304,6 +304,53 @@ const getPreviousEvaluations = async (req, res) => {
   }
 };
 
+const getLastEvaluation = async (req, res) => {
+  try {
+    const { uid } = req.params;
+
+    const snapshot = await db
+      .collection('evaluations')
+      .where('studentId', '==', uid)
+      .orderBy('createdAt', 'desc')
+      .limit(1)
+      .get();
+
+    if (snapshot.empty) {
+      return res.status(404).json({ error: 'No hay evaluaciones registradas para este estudiante.' });
+    }
+
+    const doc = snapshot.docs[0];
+    const evalData = doc.data();
+
+    // 🔧 Convertir métricas de strings a números válidos
+    const rawRatings = evalData.metrics || evalData.ratings || {};
+    const cleanRatings = {};
+
+    Object.entries(rawRatings).forEach(([key, val]) => {
+      const numberVal = parseInt(val, 10);
+      if (!isNaN(numberVal)) {
+        cleanRatings[key] = numberVal;
+      }
+    });
+
+    const response = {
+      studentInfo: {
+        name: evalData.studentName || 'Estudiante',
+        lupeLevel: evalData.lupeLevel || 'N/A',
+      },
+      ratings: cleanRatings,
+      exercises: Object.keys(cleanRatings),
+      averageScore: evalData.averageScore || '0.00',
+    };
+
+    return res.status(200).json(response);
+  } catch (error) {
+    console.error('❌ Error al obtener última evaluación:', error);
+    return res.status(500).json({ error: 'Error del servidor al consultar la evaluación.' });
+  }
+};
+
+
 module.exports = {
   registerEvaluation,
   getAllEvaluations,
@@ -314,4 +361,5 @@ module.exports = {
   getPreviousEvaluations,
   getExercisesByLevel,
   getMetricsByLevel,
+  getLastEvaluation,
 };

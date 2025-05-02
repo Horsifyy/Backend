@@ -121,7 +121,13 @@ const login = async (req, res) => {
 
     res.status(200).json({
       message: "Inicio de sesión exitoso",
-      user: userData,
+      user: {
+        id: decodedToken.uid,
+        name: userData.name,
+        email: userData.email,
+        role: userData.role,
+        lupeLevel: userData.lupeLevel,
+      },
     });
   } catch (error) {
     console.error("Error en autenticación:", error);
