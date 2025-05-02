@@ -57,7 +57,7 @@ const METRICS = {
 
 const registerEvaluation = async (req, res) => {
   try {
-    const { studentId, lupeLevel, exercises, metrics, comments } = req.body;
+    const { studentId, lupeLevel, exercises, metrics, comments, imageUrl } = req.body;
 
     // Validar datos
     if (!studentId || !lupeLevel) {
@@ -74,6 +74,7 @@ const registerEvaluation = async (req, res) => {
       metrics: metrics || {},      // Guardar las calificaciones de métricas
       comments: comments || '',    // Si no hay comentarios, asignar cadena vacía
       averageScore: averageScore,
+      imageUrl: imageUrl || '',
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
     };
 
@@ -252,25 +253,31 @@ function calculateAverageScore(metrics) {
 const getPreviousEvaluations = async (req, res) => {
   try {
     const { studentId } = req.params;
-    const { range } = req.query; // puede ser "week" o "month"
+    const { range, year, level } = req.query; // puede ser "week" o "month"
 
     if (!studentId) {
       return res.status(400).json({ error: 'Student ID is required' });
     }
+    
 
     let startDate = null;
     const now = new Date();
 
-    if (range === 'week') {
+     // Filtrar por rango: semana, mes o año
+     if (range === 'week') {
       startDate = new Date(now.setDate(now.getDate() - 7));
     } else if (range === 'month') {
       startDate = new Date(now.setMonth(now.getMonth() - 1));
+    } else if (range === 'year' && year) {
+      startDate = new Date(`${year}-01-01`);
     }
 
     let query = db.collection('evaluations')
       .where('studentId', '==', studentId)
-      .orderBy('createdAt', 'desc');
+      .where('lupeLevel', '==', level) // Filtrar por nivel
+      .orderBy('createdAt', 'desc'); // Ordenar por fecha
 
+      // Si se seleccionó un rango de fechas, aplicar filtro de fecha
     if (startDate) {
       query = query.where('createdAt', '>=', admin.firestore.Timestamp.fromDate(startDate));
     }
