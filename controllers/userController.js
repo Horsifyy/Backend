@@ -150,19 +150,20 @@ const getCurrentUser = async (req, res) => {
 const editUserProfile = async (req, res) => {
   try {
     const { userId } = req.params; // Tomamos el userId de los parámetros de la ruta
-    const { name, email } = req.body; // Los nuevos datos a actualizar (solo name y email)
+    const { name, email, profilePicture } = req.body; // Los nuevos datos a actualizar (name, email, y profilePicture)
 
-    // Verificamos que al menos uno de los campos (name o email) esté presente
-    if (!name && !email) {
+    // Verificamos que al menos uno de los campos (name, email, o profilePicture) esté presente
+    if (!name && !email && !profilePicture) {
       return res.status(400).json({ error: "Debes proporcionar al menos un campo para actualizar" });
     }
 
     const updateData = {};
 
-    // Solo permitimos actualizar el nombre y el correo
+    // Solo permitimos actualizar el nombre, el correo y la imagen
     if (name) updateData.name = name;
     if (email) updateData.email = email;
-
+    if (profilePicture) updateData.profilePicture = profilePicture; // Agregar nueva imagen de perfil
+    
     // Obtenemos el documento del usuario en Firestore y lo actualizamos
     const userRef = db.collection("users").doc(userId);
     await userRef.update(updateData);
