@@ -53,8 +53,53 @@ const getClassesByStudent = async (req, res) => {
   }
 };
 
+// 🔹 Registrar asistencia y sumar puntos
+const registerAttendance = async (req, res) => {
+  try {
+    const { studentId, classId } = req.body;
+
+    if (!studentId || !classId) {
+      return res.status(400).json({ error: "Faltan campos obligatorios" });
+    }
+
+    // Verificar si la clase existe
+    const classSnapshot = await db.collection("scheduledClasses").doc(classId).get();
+    if (!classSnapshot.exists) {
+      return res.status(404).json({ error: "Clase no encontrada" });
+    }
+
+    // Verificar si el estudiante está programado para esta clase
+    const classData = classSnapshot.data();
+    if (classData.studentId !== studentId) {
+      return res.status(400).json({ error: "El estudiante no está programado para esta clase" });
+    }
+
+    // Actualizar la asistencia y sumar puntos
+    const pointsToAdd = 10; // Puntos por asistir a la clase
+
+    const studentRef = db.collection("students").doc(studentId);
+    await studentRef.update({
+      points: admin.firestore.FieldValue.increment(pointsToAdd)
+    });
+
+    // Registrar asistencia
+    const attendanceRef = db.collection("attendances").doc();
+    await attendanceRef.set({
+      studentId,
+      classId,
+      date: admin.firestore.FieldValue.serverTimestamp(),
+      pointsAwarded: pointsToAdd
+    });
+
+    res.status(200).json({ message: "Asistencia registrada y puntos sumados" });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
 module.exports = {
   scheduleClass,
   getAllScheduledClasses,
-  getClassesByStudent
+  getClassesByStudent,
+  registerAttendance 
 };

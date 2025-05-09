@@ -6,6 +6,9 @@ const userRoutes = require("./routes/userRoutes");
 const authRoutes = require("./routes/authRoutes");
 const evaluationRoutes = require("./routes/evaluationRoutes");
 const classRoutes = require("./routes/classRoutes");
+const attendanceRoutes = require("./routes/attendanceRoutes");
+const rewardRoutes = require("./routes/rewardRoutes");
+
 
 const app = express();
 
@@ -18,6 +21,10 @@ app.use("/api/users", userRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/evaluations", evaluationRoutes);
 app.use("/api/classes", classRoutes);
+app.use("/api/attendances", attendanceRoutes);
+app.use("/api/rewards", rewardRoutes);
+
+
 
 
 // Mostrar rutas registradas

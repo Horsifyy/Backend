@@ -57,25 +57,34 @@ const getEvaluationById = async (req, res) => {
 
 // 🔹 Actualizar una evaluación
 const updateEvaluation = async (req, res) => {
-    try {
-        const { id } = req.params;
-        const { balanceYEquilibrio, conduccion, equitacionCentrada, comments } = req.body;
-        
-        const updateData = {
-            balanceYEquilibrio,
-            conduccion,
-            equitacionCentrada,
-            comments,
-            updatedAt: admin.firestore.FieldValue.serverTimestamp()
-        };
-        
-        await admin.firestore().collection("evaluations").doc(id).update(updateData);
-        
-        res.status(200).json({ message: "Evaluación actualizada con éxito" });
-    } catch (error) {
-        res.status(500).json({ error: error.message });
+  const { id } = req.params;
+  const data = req.body;
+
+  try {
+    // 🔍 Filtrar campos undefined para evitar errores de Firestore
+    const cleanedData = {};
+    Object.entries(data).forEach(([key, value]) => {
+      if (value !== undefined) {
+        cleanedData[key] = value;
+      }
+    });
+
+    const evaluationRef = admin.firestore().collection("evaluations").doc(id);
+    const doc = await evaluationRef.get();
+
+    if (!doc.exists) {
+      return res.status(404).json({ error: "Evaluación no encontrada" });
     }
+
+    await evaluationRef.update(cleanedData);
+
+    return res.status(200).json({ message: "Evaluación actualizada con éxito" });
+  } catch (error) {
+    console.error("Error al actualizar evaluación:", error.message);
+    return res.status(500).json({ error: error.message });
+  }
 };
+
 
 // 🔹 Eliminar una evaluación
 const deleteEvaluation = async (req, res) => {

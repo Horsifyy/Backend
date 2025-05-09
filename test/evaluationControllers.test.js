@@ -67,6 +67,8 @@ describe("Evaluaciones - Método LUPE", () => {
         comments: "Desempeño mejorado",
       });
 
+    console.log("Respuesta del servidor:", response.body); // Imprime la respuesta completa para depuración
+
     expect(response.status).toBe(200);
     expect(response.body).toHaveProperty("message", "Evaluación actualizada con éxito");
   });
