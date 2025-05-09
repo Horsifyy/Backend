@@ -9,4 +9,6 @@ if (!admin.apps.length) {
   });
 }
 
-module.exports = admin;
+const db = getFirestore();
+
+module.exports = { admin, db };
