@@ -40,6 +40,6 @@ app._router.stack.forEach((r) => {
 // 🔹 Servidor en el puerto 5000
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, "0.0.0.0", () => {
-  console.log(`Servidor corriendo en http://10.139.101.152:${PORT}`);
+  console.log(`Servidor corriendo en http://192.168.2.6:${PORT}`);
 });
 

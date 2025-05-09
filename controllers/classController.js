@@ -84,8 +84,45 @@ const getClassesByStudent = async (req, res) => {
   }
 };
 
+const getAllTeachers = async (req, res) => {
+  try {
+    const snapshot = await db.collection('teachers').get();
+    const teachers = [];
+
+    snapshot.forEach(doc => {
+      teachers.push({ id: doc.id, ...doc.data() });
+    });
+
+    return res.status(200).json(teachers);
+  } catch (error) {
+    console.error('Error al obtener profesores:', error);
+    return res.status(500).json({ error: 'No se pudieron obtener los profesores.' });
+  }
+};
+
+const getUnavailableTimes = async (req, res) => {
+  const { date } = req.params;
+  try {
+    const snapshot = await db.collection('classes').where('date', '==', date).get();
+    const takenTimes = [];
+
+    snapshot.forEach(doc => {
+      const data = doc.data();
+      takenTimes.push(data.time);
+    });
+
+    return res.status(200).json(takenTimes);
+  } catch (error) {
+    console.error('Error al obtener horarios:', error);
+    return res.status(500).json({ error: 'No se pudieron obtener los horarios ocupados.' });
+  }
+};
+
+
 module.exports = {
   scheduleClass,
   getAllScheduledClasses,
-  getClassesByStudent
+  getClassesByStudent,
+  getAllTeachers,
+  getUnavailableTimes,
 };

@@ -174,5 +174,26 @@ const editUserProfile = async (req, res) => {
   }
 };
 
+const getAllTeachers = async (req, res) => {
+  try {
+    const snapshot = await db.collection('users')
+      .where('role', '==', 'Docente')
+      .get();
 
-module.exports = { getUsers, getUserById, createUser, verifyToken, getCurrentUser, editUserProfile };
+    console.log(`Total docs encontrados: ${snapshot.size}`);
+
+    const teachers = [];
+    snapshot.forEach(doc => {
+      console.log('Encontrado:', doc.id, doc.data());
+      teachers.push({ id: doc.id, ...doc.data() });
+    });
+
+    return res.status(200).json({ teachers });
+  } catch (error) {
+    console.error('Error al obtener profesores:', error);
+    return res.status(500).json({ error: 'No se pudieron obtener los profesores.' });
+  }
+};
+
+
+module.exports = { getUsers, getUserById, createUser, verifyToken, getCurrentUser, editUserProfile, getAllTeachers };

@@ -222,4 +222,5 @@ const getStudentsByTeacher = async (req, res) => {
   }
 };
 
-module.exports = { registerStudent, registerTeacher, login, resetPassword, getStudentsByTeacher };
+
+module.exports = { registerStudent, registerTeacher, login, resetPassword, getStudentsByTeacher};
