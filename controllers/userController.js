@@ -4,15 +4,14 @@ const admin = require('firebase-admin');
 // Obtener todos los usuarios
 const getUsers = async (req, res) => {
   try {
-    const { role } = req.query; // Permite filtrar por rol
+    const { role } = req.query;
 
     let usersRef = db.collection("users");
-    
     if (role) {
       if (role !== "Estudiante" && role !== "Docente") {
         return res.status(400).json({ error: "Rol inválido. Usa 'Estudiante' o 'Docente'." });
       }
-      usersRef = usersRef.where("role", "==", role); // Filtrar solo por el rol indicado
+      usersRef = usersRef.where("role", "==", role);
     }
 
     const snapshot = await usersRef.get();
@@ -36,14 +35,14 @@ const getUserById = async (req, res) => {
       return res.status(404).json({ error: 'Usuario no encontrado' });
     }
 
-    // Obtener los datos del usuario y incluir el campo 'lupeLevel' si es un estudiante
     const userData = userDoc.data();
     const responseData = {
       id: uid,
       name: userData.name,
       email: userData.email,
       role: userData.role,
-      lupeLevel: userData.lupeLevel || null  // Solo si es un estudiante
+      lupeLevel: userData.lupeLevel || null,
+      points: userData.points || 0
     };
 
     res.status(200).json(responseData);
@@ -52,23 +51,20 @@ const getUserById = async (req, res) => {
   }
 };
 
-
+// Crear un usuario
 const createUser = async (req, res) => {
   try {
     const { uid, name, email, role, lupeLevel } = req.body;
 
-    // Validar que todos los campos sean obligatorios
     if (!uid || !name || !email || !role) {
       return res.status(400).json({ error: "Todos los campos son obligatorios." });
     }
 
-    // Validar roles permitidos
     if (role !== "Estudiante" && role !== "Docente") {
       return res.status(400).json({ error: "Rol inválido. Debe ser 'Estudiante' o 'Docente'." });
     }
 
     const userRef = db.collection("users").doc(uid);
-
     let userData = {
       name,
       email,
@@ -81,18 +77,16 @@ const createUser = async (req, res) => {
         return res.status(400).json({ error: "El campo 'lupeLevel' es obligatorio para estudiantes." });
       }
       userData.lupeLevel = lupeLevel;
+      userData.points = 0; // 👈 Inicializar puntos
     }
 
-
     await userRef.set(userData);
-
     res.status(201).json({ message: "Usuario registrado en Firestore correctamente." });
   } catch (error) {
     console.error("Error al crear usuario en Firestore:", error);
     res.status(500).json({ error: "Error al crear usuario en Firestore" });
   }
 };
-
 
 // Middleware para verificar el token de Firebase
 const verifyToken = async (req, res, next) => {
@@ -101,9 +95,8 @@ const verifyToken = async (req, res, next) => {
     if (!token) return res.status(403).json({ error: "No autorizado" });
 
     const decodedToken = await admin.auth().verifyIdToken(token);
-    req.user = decodedToken; // Agregamos el usuario decodificado
+    req.user = decodedToken;
 
-    // Obtener el rol del usuario desde Firestore
     const userRef = db.collection("users").doc(decodedToken.uid);
     const userDoc = await userRef.get();
 
@@ -111,7 +104,7 @@ const verifyToken = async (req, res, next) => {
       return res.status(403).json({ error: "Usuario no encontrado en Firestore" });
     }
 
-    req.user.role = userDoc.data().role; // Agregar el rol a la solicitud
+    req.user.role = userDoc.data().role;
     next();
   } catch (error) {
     console.error("Error en verificación de token:", error);
@@ -122,7 +115,7 @@ const verifyToken = async (req, res, next) => {
 // Obtener datos del usuario autenticado
 const getCurrentUser = async (req, res) => {
   try {
-    const uid = req.user.uid; // viene del middleware verifyToken
+    const uid = req.user.uid;
     const userRef = db.collection('users').doc(uid);
     const userDoc = await userRef.get();
 
@@ -137,6 +130,7 @@ const getCurrentUser = async (req, res) => {
       email: data.email,
       role: data.role,
       lupeLevel: data.lupeLevel || null,
+      points: data.points || 0
     };
 
     res.status(200).json(response);
@@ -146,25 +140,21 @@ const getCurrentUser = async (req, res) => {
   }
 };
 
-// Editar perfil de usuario (solo name y email)
+// Editar perfil de usuario
 const editUserProfile = async (req, res) => {
   try {
-    const { userId } = req.params; // Tomamos el userId de los parámetros de la ruta
-    const { name, email, profilePicture } = req.body; // Los nuevos datos a actualizar (name, email, y profilePicture)
+    const { userId } = req.params;
+    const { name, email, profilePicture } = req.body;
 
-    // Verificamos que al menos uno de los campos (name, email, o profilePicture) esté presente
     if (!name && !email && !profilePicture) {
       return res.status(400).json({ error: "Debes proporcionar al menos un campo para actualizar" });
     }
 
     const updateData = {};
-
-    // Solo permitimos actualizar el nombre, el correo y la imagen
     if (name) updateData.name = name;
     if (email) updateData.email = email;
-    if (profilePicture) updateData.profilePicture = profilePicture; // Agregar nueva imagen de perfil
-    
-    // Obtenemos el documento del usuario en Firestore y lo actualizamos
+    if (profilePicture) updateData.profilePicture = profilePicture;
+
     const userRef = db.collection("users").doc(userId);
     await userRef.update(updateData);
 
@@ -175,20 +165,14 @@ const editUserProfile = async (req, res) => {
   }
 };
 
+// Obtener todos los docentes
 const getAllTeachers = async (req, res) => {
   try {
     const snapshot = await db.collection('users')
       .where('role', '==', 'Docente')
       .get();
 
-    console.log(`Total docs encontrados: ${snapshot.size}`);
-
-    const teachers = [];
-    snapshot.forEach(doc => {
-      console.log('Encontrado:', doc.id, doc.data());
-      teachers.push({ id: doc.id, ...doc.data() });
-    });
-
+    const teachers = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
     return res.status(200).json({ teachers });
   } catch (error) {
     console.error('Error al obtener profesores:', error);
@@ -196,5 +180,50 @@ const getAllTeachers = async (req, res) => {
   }
 };
 
+// Modificar puntos de un estudiante
+const updateStudentPoints = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { delta } = req.body; // delta puede ser positivo o negativo
 
-module.exports = { getUsers, getUserById, createUser, verifyToken, getCurrentUser, editUserProfile, getAllTeachers };
+    if (typeof delta !== 'number') {
+      return res.status(400).json({ error: "'delta' debe ser un número" });
+    }
+
+    const userRef = db.collection("users").doc(id);
+    const userDoc = await userRef.get();
+
+    if (!userDoc.exists) {
+      return res.status(404).json({ error: "Estudiante no encontrado" });
+    }
+
+    const userData = userDoc.data();
+    if (userData.role !== "Estudiante") {
+      return res.status(400).json({ error: "Solo se pueden modificar puntos a estudiantes" });
+    }
+
+    const currentPoints = userData.points || 0;
+    const newPoints = currentPoints + delta;
+
+    await userRef.update({ points: newPoints });
+
+    res.status(200).json({
+      message: "Puntos actualizados correctamente",
+      points: newPoints
+    });
+  } catch (error) {
+    console.error("Error al modificar puntos del estudiante:", error);
+    res.status(500).json({ error: "Error al modificar puntos" });
+  }
+};
+
+module.exports = {
+  getUsers,
+  getUserById,
+  createUser,
+  verifyToken,
+  getCurrentUser,
+  editUserProfile,
+  getAllTeachers,
+  updateStudentPoints
+};
