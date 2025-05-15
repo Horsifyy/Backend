@@ -1,4 +1,5 @@
 const { db } = require("../firebase");
+const admin = require("firebase-admin");
 
 // 🔹 Programar una clase (estudiante)
 const scheduleClass = async (req, res) => {
@@ -9,7 +10,6 @@ const scheduleClass = async (req, res) => {
       return res.status(400).json({ error: "Faltan campos obligatorios" });
     }
 
-    // Crear nueva clase en la colección 'classes'
     const classData = {
       studentId,
       date,
@@ -18,10 +18,8 @@ const scheduleClass = async (req, res) => {
       createdAt: new Date().toISOString()
     };
 
-    // Guardar en Firestore
     const classRef = await db.collection('classes').add(classData);
 
-    // Devolver respuesta exitosa con ID
     return res.status(201).json({
       success: true,
       id: classRef.id,
@@ -29,25 +27,23 @@ const scheduleClass = async (req, res) => {
     });
   } catch (error) {
     console.error('Error al programar clase:', error);
-    return res.status(500).json({ 
-      error: 'Error al programar la clase: ' + error.message 
-    });
+    return res.status(500).json({ error: 'Error al programar la clase: ' + error.message });
   }
 };
 
-// Obtener todas las clases programadas
+// 🔹 Obtener todas las clases programadas
 const getAllScheduledClasses = async (req, res) => {
   try {
     const classesSnapshot = await db.collection('classes').get();
     const classes = [];
-    
+
     classesSnapshot.forEach(doc => {
       classes.push({
         id: doc.id,
         ...doc.data()
       });
     });
-    
+
     return res.status(200).json(classes);
   } catch (error) {
     console.error('Error al obtener clases:', error);
@@ -55,28 +51,28 @@ const getAllScheduledClasses = async (req, res) => {
   }
 };
 
-// Obtener clases por estudiante
+// 🔹 Obtener clases por estudiante
 const getClassesByStudent = async (req, res) => {
   try {
     const { studentId } = req.params;
-    
+
     if (!studentId) {
       return res.status(400).json({ error: 'ID de estudiante requerido' });
     }
-    
+
     const classesSnapshot = await db.collection('classes')
       .where('studentId', '==', studentId)
       .get();
-    
+
     const classes = [];
-    
+
     classesSnapshot.forEach(doc => {
       classes.push({
         id: doc.id,
         ...doc.data()
       });
     });
-    
+
     return res.status(200).json(classes);
   } catch (error) {
     console.error('Error al obtener clases del estudiante:', error);
@@ -84,6 +80,7 @@ const getClassesByStudent = async (req, res) => {
   }
 };
 
+// 🔹 Obtener todos los profesores
 const getAllTeachers = async (req, res) => {
   try {
     const snapshot = await db.collection('teachers').get();
@@ -100,6 +97,7 @@ const getAllTeachers = async (req, res) => {
   }
 };
 
+// 🔹 Obtener horarios ocupados por fecha
 const getUnavailableTimes = async (req, res) => {
   const { date } = req.params;
   try {
@@ -118,6 +116,54 @@ const getUnavailableTimes = async (req, res) => {
   }
 };
 
+// 🔹 Reprogramar una clase (por estudiante o profesor)
+const rescheduleClass = async (req, res) => {
+  try {
+    const { classId } = req.params;
+    const { newDate, newTime } = req.body;
+
+    if (!newDate || !newTime) {
+      return res.status(400).json({ error: "Faltan fecha o hora nueva" });
+    }
+
+    const classRef = db.collection("classes").doc(classId);
+    const classDoc = await classRef.get();
+
+    if (!classDoc.exists) {
+      return res.status(404).json({ error: "Clase no encontrada" });
+    }
+
+    await classRef.update({
+      date: newDate,
+      time: newTime,
+      updatedAt: admin.firestore.FieldValue.serverTimestamp()
+    });
+
+    res.status(200).json({ message: "Clase reprogramada correctamente" });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// 🔹 Cancelar una clase (por estudiante o profesor)
+const cancelClass = async (req, res) => {
+  try {
+    const { classId } = req.params;
+
+    const classRef = db.collection("classes").doc(classId);
+    const classDoc = await classRef.get();
+
+    if (!classDoc.exists) {
+      return res.status(404).json({ error: "Clase no encontrada" });
+    }
+
+    await classRef.delete();
+
+    res.status(200).json({ message: "Clase cancelada correctamente" });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
 
 module.exports = {
   scheduleClass,
@@ -125,4 +171,6 @@ module.exports = {
   getClassesByStudent,
   getAllTeachers,
   getUnavailableTimes,
+  rescheduleClass,
+  cancelClass
 };
