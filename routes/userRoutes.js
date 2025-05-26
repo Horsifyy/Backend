@@ -11,5 +11,4 @@ router.get('/teachers', verifyToken, getAllTeachers);
 router.put("/points/:id", verifyToken, updateStudentPoints);
 
 
-
 module.exports = router;

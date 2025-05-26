@@ -130,11 +130,13 @@ const getCurrentUser = async (req, res) => {
       email: data.email,
       role: data.role,
       lupeLevel: data.lupeLevel || null,
-      points: data.points || 0
+      points: data.points || 0,
+      profilePicture: data.profilePicture || null,
+      averageScore: data.averageScore || null
     };
 
     res.status(200).json(response);
-  } catch (error) {
+  } catch (error) { 
     console.error('Error al obtener el usuario autenticado:', error);
     res.status(500).json({ error: 'Error al obtener datos del usuario' });
   }
@@ -144,16 +146,19 @@ const getCurrentUser = async (req, res) => {
 const editUserProfile = async (req, res) => {
   try {
     const { userId } = req.params;
-    const { name, email, profilePicture } = req.body;
+    const { name, email, profilePicture, lupeLevel } = req.body;
 
-    if (!name && !email && !profilePicture) {
-      return res.status(400).json({ error: "Debes proporcionar al menos un campo para actualizar" });
-    }
+    if (name === undefined && email === undefined && profilePicture === undefined && lupeLevel === undefined) {
+  return res.status(400).json({ error: "Debes proporcionar al menos un campo para actualizar" });
+}
+
 
     const updateData = {};
-    if (name) updateData.name = name;
-    if (email) updateData.email = email;
-    if (profilePicture) updateData.profilePicture = profilePicture;
+if (name !== undefined) updateData.name = name;
+if (email !== undefined) updateData.email = email;
+if (profilePicture !== undefined) updateData.profilePicture = profilePicture;
+if (lupeLevel !== undefined) updateData.lupeLevel = lupeLevel;
+
 
     const userRef = db.collection("users").doc(userId);
     await userRef.update(updateData);

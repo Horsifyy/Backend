@@ -30,6 +30,7 @@ const registerStudent = async (req, res) => {
       role: "Estudiante",
       lupeLevel,
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      points: 0,
     });
 
     res.status(201).json({

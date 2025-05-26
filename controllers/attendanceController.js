@@ -41,7 +41,7 @@ const registerAttendance = async (req, res) => {
     // Se suman los puntos al estudiante
     const studentRef = db.collection("students").doc(studentId);
     await studentRef.update({
-      points: admin.firestore.FieldValue.increment(pointsAwarded),
+      points: admin.firestore.FieldValue.increment(10),
     });
 
     return res.status(200).json({ message: "Asistencia registrada con éxito." });

@@ -341,12 +341,140 @@ const getLastEvaluation = async (req, res) => {
       ratings: cleanRatings,
       exercises: Object.keys(cleanRatings),
       averageScore: evalData.averageScore || '0.00',
+      comments: evalData.comments || '',  // <--- Aquí
+      imageUrl: evalData.imageUrl || '',
     };
 
     return res.status(200).json(response);
   } catch (error) {
     console.error('❌ Error al obtener última evaluación:', error);
     return res.status(500).json({ error: 'Error del servidor al consultar la evaluación.' });
+  }
+};
+
+// ✅ Backend - evaluaciónController.js
+const getStudentPoints = async (req, res) => {
+  try {
+    const { studentId } = req.params;
+
+    const evalSnap = await db.collection("evaluations")
+      .where("studentId", "==", studentId)
+      .get();
+
+    const totalPoints = evalSnap.size * 10; // 10 puntos por evaluación
+
+    // Restar los puntos canjeados
+    const redemptionsSnap = await db.collection("redemptions")
+      .where("studentId", "==", studentId)
+      .get();
+
+    let redeemedPoints = 0;
+    redemptionsSnap.forEach(doc => {
+      const data = doc.data();
+      redeemedPoints += data.pointsUsed || 0;
+    });
+
+    const availablePoints = totalPoints - redeemedPoints;
+
+    return res.status(200).json({ points: Math.max(0, availablePoints) });
+  } catch (error) {
+    console.error("Error al calcular puntos del estudiante:", error);
+    return res.status(500).json({ error: "Error interno del servidor" });
+  }
+};
+
+
+// GET historial general del estudiante
+const getHistorialExtras = async (req, res) => {
+  try {
+    const { studentId } = req.params;
+    const docRef = admin.firestore().collection('historialExtras').doc(studentId);
+    const doc = await docRef.get();
+
+    if (!doc.exists) {
+      return res.status(200).json({ comentarios: '', imagenUrl: '' });
+    }
+
+    return res.status(200).json(doc.data());
+  } catch (error) {
+    return res.status(500).json({ error: error.message });
+  }
+};
+
+
+const updateHistorialExtras = async (req, res) => {
+  try {
+    const { studentId } = req.params;
+    const { comentarios, imagenUrl } = req.body;
+
+    const docRef = admin.firestore().collection('historialExtras').doc(studentId);
+    await docRef.set(
+      {
+        ...(comentarios !== undefined && { comentarios }),
+        ...(imagenUrl !== undefined && { imagenUrl }),
+      },
+      { merge: true }
+    );
+
+    return res.status(200).json({ message: 'Historial actualizado' });
+  } catch (error) {
+    return res.status(500).json({ error: error.message });
+  }
+};
+
+const getLastEvaluationWithExtras = async (req, res) => {
+  try {
+    const { uid } = req.params;
+
+    // Obtener última evaluación
+    const snapshot = await db
+      .collection('evaluations')
+      .where('studentId', '==', uid)
+      .orderBy('createdAt', 'desc')
+      .limit(1)
+      .get();
+
+    let lastEvalData = null;
+    if (!snapshot.empty) {
+      const doc = snapshot.docs[0];
+      const evalData = doc.data();
+
+      // Convertir métricas a números
+      const rawRatings = evalData.metrics || evalData.ratings || {};
+      const cleanRatings = {};
+      Object.entries(rawRatings).forEach(([key, val]) => {
+        const numberVal = parseInt(val, 10);
+        if (!isNaN(numberVal)) {
+          cleanRatings[key] = numberVal;
+        }
+      });
+
+      lastEvalData = {
+        studentInfo: {
+          name: evalData.studentName || 'Estudiante',
+          lupeLevel: evalData.lupeLevel || 'N/A',
+        },
+        ratings: cleanRatings,
+        exercises: Object.keys(cleanRatings),
+        averageScore: evalData.averageScore || '0.00',
+        comments: evalData.comments || '',
+        imageUrl: evalData.imageUrl || '',
+      };
+    } else {
+      lastEvalData = null;
+    }
+
+    // Obtener historial extras
+    const histDoc = await db.collection('historialExtras').doc(uid).get();
+    const historialExtras = histDoc.exists ? histDoc.data() : { comentarios: '', imagenUrl: '' };
+
+    return res.status(200).json({
+      lastEvaluation: lastEvalData,
+      historialExtras,
+    });
+  } catch (error) {
+    console.error('Error al obtener última evaluación con extras:', error);
+    return res.status(500).json({ error: 'Error del servidor al consultar la evaluación y extras.' });
   }
 };
 
@@ -362,4 +490,8 @@ module.exports = {
   getExercisesByLevel,
   getMetricsByLevel,
   getLastEvaluation,
+  getStudentPoints,
+  getHistorialExtras,
+  updateHistorialExtras,
+getLastEvaluationWithExtras,
 };
