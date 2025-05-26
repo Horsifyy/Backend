@@ -30,6 +30,7 @@ const registerStudent = async (req, res) => {
       role: "Estudiante",
       lupeLevel,
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      points: 0,
     });
 
     res.status(201).json({
@@ -121,7 +122,13 @@ const login = async (req, res) => {
 
     res.status(200).json({
       message: "Inicio de sesión exitoso",
-      user: userData,
+      user: {
+        id: decodedToken.uid,
+        name: userData.name,
+        email: userData.email,
+        role: userData.role,
+        lupeLevel: userData.lupeLevel,
+      },
     });
   } catch (error) {
     console.error("Error en autenticación:", error);
@@ -170,4 +177,51 @@ const resetPassword = async (req, res) => {
   }
 };
 
-module.exports = { registerStudent, registerTeacher, login, resetPassword };
+// Agregar esta función a tu archivo authController.js
+
+const getStudentsByTeacher = async (req, res) => {
+  try {
+    const idToken = req.headers.authorization?.split('Bearer ')[1];
+
+    if (!idToken) {
+      return res.status(401).json({ error: "No autorizado" });
+    }
+
+    // Verificar el token y obtener el usuario
+    const decodedToken = await getAuth().verifyIdToken(idToken);
+    const teacherUid = decodedToken.uid;
+    
+    // Verificar que sea un docente
+    const teacherDoc = await db.collection("users").doc(teacherUid).get();
+    
+    if (!teacherDoc.exists || teacherDoc.data().role !== "Docente") {
+      return res.status(403).json({ error: "Acceso denegado: Solo los docentes pueden acceder a esta información" });
+    }
+    
+    // Obtener todos los estudiantes
+    const studentsSnapshot = await db.collection("users")
+      .where("role", "==", "Estudiante")
+      .orderBy("name")
+      .get();
+    
+    const students = [];
+    studentsSnapshot.forEach(doc => {
+      const studentData = doc.data();
+      students.push({
+        id: doc.id,
+        name: studentData.name,
+        lupeLevel: studentData.lupeLevel
+      });
+    });
+
+    res.status(200).json({
+      students
+    });
+  } catch (error) {
+    console.error("Error al obtener estudiantes:", error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
+
+module.exports = { registerStudent, registerTeacher, login, resetPassword, getStudentsByTeacher};

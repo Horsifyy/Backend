@@ -1,15 +1,47 @@
+// routes/evaluationRoutes.js
+
 const express = require("express");
-const { registerEvaluation, getPerformanceMetrics, generateReport } = require("../controllers/evaluationController");
+const {
+  registerEvaluation,
+  getAllEvaluations,
+  getEvaluationById,
+  updateEvaluation,
+  deleteEvaluation,
+  getStudentMetrics,
+  getPreviousEvaluations,
+  getExercisesByLevel,   // Asegúrate de exportar esto desde evaluationController.js
+  getMetricsByLevel,
+  getLastEvaluation,
+  getStudentPoints,
+  getHistorialExtras,
+  updateHistorialExtras,
+getLastEvaluationWithExtras
+} = require("../controllers/evaluationController");
 
 const router = express.Router();
 
-// Ruta para registrar una evaluaci�n seg�n el M�todo LUPE
-router.post("/evaluations", registerEvaluation);
+router.post("/", registerEvaluation);
+router.get("/", getAllEvaluations);
 
-// Ruta para obtener m�tricas de desempe�o de un estudiante
-router.get("/evaluations/metrics/:studentId", getPerformanceMetrics);
+router.get("/exercises/:level", getExercisesByLevel);
+router.get("/metrics/:level", getMetricsByLevel);
+router.get("/students/:studentId/metrics", getStudentMetrics);
+router.get("/students/:studentId/points", getStudentPoints);
 
-// Ruta para generar un reporte de evaluaci�n y progreso
-router.get("/evaluations/report/:studentId", generateReport);
+router.get("/last/:uid", getLastEvaluation);
+router.get("/lastWithExtras/:uid", getLastEvaluationWithExtras);
+
+router.get("/historial/:studentId", getHistorialExtras);
+router.patch("/historial/:studentId", updateHistorialExtras);
+
+router.get("/history/:studentId", getPreviousEvaluations); // con filtros
+
+// Estas deben ir al final
+router.get("/:id", getEvaluationById);
+router.put("/:id", updateEvaluation);
+router.delete("/:id", deleteEvaluation);
+
+
 
 module.exports = router;
+

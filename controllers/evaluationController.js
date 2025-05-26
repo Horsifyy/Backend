@@ -1,120 +1,497 @@
 const admin = require("firebase-admin");
+const db = admin.firestore(); 
 
-// Registrar una evaluación según el Método LUPE
+// Listado de ejercicios por nivel
+const EXERCISES = {
+  Amarillo: [
+    "Montar a pelo (desarrollar equilibrio propio)",
+    "Montar con silla",
+    "Movimientos de los brazos (control del tronco y brazos)",
+    "Giro sobre el caballo (sentido de orientación y equilibrio)",
+    "Caminar en línea recta al paso",
+    "Acostarse sobre el caballo",
+    "Lanzamiento de aros en conos",
+  ],
+  Azul: [
+    "Montar a pelo (desarrollar equilibrio propio)",
+    "Montar con silla",
+    "Transiciones paso-trote-paso",
+    "Dar círculos (grandes y pequeños)",
+    "Hacer serpentinas (al paso y al trote)",
+    "Detenerse en un punto específico (control de la parada)",
+    "Cambio de dirección para atrás (a la voz)",
+  ],
+  Rojo: [
+    "Montar a pelo (equilibrio y conexión con el caballo)",
+    "Montar con silla",
+    "Transiciones complejas (trote – galope – parada)",
+    "Círculos en diferentes tamaños",
+    "Ejercicios combinados (serpentina + cambio de marcha)",
+    "Detención exacta en línea recta (al galope o trote)",
+  ],
+};
+
+const METRICS = {
+  Amarillo: [
+    "Estabilidad sobre el caballo",
+    "Postura alineada",
+    "Posición de las piernas",
+    "Control del tronco y coordinación",
+    "Uso adecuado de las manos y riendas",
+  ],
+  Azul: [
+    "Precisión en las transiciones",
+    "Trazado de figuras correctamente",
+    "Respuesta del caballo a las órdenes",
+    "Control y ritmo del movimiento",
+    "Nivel de independencia en la conducción",
+  ],
+  Rojo: [
+    "Capacidad para mantener un ritmo constante",
+    "Ejercicios avanzados realizados correctamente",
+    "Conexión y sincronización con el caballo",
+    "Coordinación de movimientos",
+    "Equilibrio constante",
+  ],
+};
+
 const registerEvaluation = async (req, res) => {
-    try {
-        const { studentId, lupeLevel, equilibrio, conduccion, equitacionCentrada, comments } = req.body;
+  try {
+    const { studentId, lupeLevel, exercises, metrics, comments, imageUrl } = req.body;
 
-        if (!studentId || !lupeLevel || equilibrio === undefined || conduccion === undefined || equitacionCentrada === undefined) {
-            return res.status(400).json({ error: "Todos los campos son obligatorios" });
-        }
-
-        const totalScore = equilibrio + conduccion + equitacionCentrada;
-
-        const evaluation = {
-            studentId,
-            lupeLevel,
-            criteria: {
-                equilibrio,
-                conduccion,
-                equitacionCentrada
-            },
-            totalScore,
-            comments,
-            createdAt: admin.firestore.FieldValue.serverTimestamp()
-        };
-
-        const docRef = await admin.firestore().collection("evaluations").add(evaluation);
-
-        res.status(201).json({
-            message: "Evaluación registrada",
-            evaluation: { id: docRef.id, ...evaluation }
-        });
-
-    } catch (error) {
-        res.status(500).json({ error: error.message });
+    // Validar datos
+    if (!studentId || !lupeLevel) {
+      return res.status(400).json({ error: "studentId y lupeLevel son obligatorios" });
     }
+
+    const averageScore = calculateAverageScore(metrics || {});
+
+    // Asegúrate de que no haya datos undefined
+    let evaluation = {
+      studentId,
+      lupeLevel,
+      exercises: exercises || [],  // Guardar los ejercicios seleccionados
+      metrics: metrics || {},      // Guardar las calificaciones de métricas
+      comments: comments || '',    // Si no hay comentarios, asignar cadena vacía
+      averageScore: averageScore,
+      imageUrl: imageUrl || '',
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    };
+
+    // Procesamiento específico por nivel (mantenemos esto para compatibilidad)
+    if (lupeLevel === "Amarillo") {
+      evaluation.balanceYEquilibrio = metrics || {};
+    }
+    if (lupeLevel === "Azul") {
+      evaluation.conduccion = metrics || {};
+    }
+    if (lupeLevel === "Rojo") {
+      evaluation.equitacionCentrada = metrics || {};
+    }
+
+    // Guardar en Firestore
+    const docRef = await admin.firestore().collection("evaluations").add(evaluation);
+    res.status(201).json({ message: "Evaluación registrada", evaluation: { id: docRef.id, ...evaluation } });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
 };
 
-// Obtener métricas de desempeño de un estudiante
-const getPerformanceMetrics = async (req, res) => {
-    try {
-        const { studentId } = req.params;
-        const evaluationsRef = admin.firestore().collection("evaluations");
-        const snapshot = await evaluationsRef.where("studentId", "==", studentId).get();
+// 🔹 Obtener ejercicios por nivel
+const getExercisesByLevel = (req, res) => {
+  const { level } = req.params;
+  const list = EXERCISES[level];
+  if (!list) {
+    return res.status(404).json({ error: `Nivel '${level}' no encontrado` });
+  }
+  res.json({ level, exercises: list });
+};
 
-        if (snapshot.empty) {
-            return res.status(404).json({ message: "No se encontraron evaluaciones para este estudiante" });
-        }
-
-        let totalEvaluations = 0;
-        let totalScore = 0;
-        let promedioEquilibrio = 0;
-        let promedioConduccion = 0;
-        let promedioEquitacion = 0;
-
-        snapshot.forEach(doc => {
-            const data = doc.data();
-            totalEvaluations++;
-            totalScore += data.totalScore || 0;
-
-            // Validamos que el campo "criteria" exista antes de acceder a sus valores
-            if (data.criteria) {
-                promedioEquilibrio += data.criteria.equilibrio || 0;
-                promedioConduccion += data.criteria.conduccion || 0;
-                promedioEquitacion += data.criteria.equitacionCentrada || 0;
-            }
-        });
-
-        res.status(200).json({
-            studentId,
-            totalEvaluations,
-            averageScore: totalEvaluations > 0 ? totalScore / totalEvaluations : 0,
-            averageEquilibrio: totalEvaluations > 0 ? promedioEquilibrio / totalEvaluations : 0,
-            averageConduccion: totalEvaluations > 0 ? promedioConduccion / totalEvaluations : 0,
-            averageEquitacion: totalEvaluations > 0 ? promedioEquitacion / totalEvaluations : 0
-        });
-
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
+// 🔹 Obtener métricas por nivel
+const getMetricsByLevel = (req, res) => {
+  const { level } = req.params;
+  const list = METRICS[level];
+  if (!list) {
+    return res.status(404).json({ error: `Nivel '${level}' no encontrado` });
+  }
+  res.json({ level, metrics: list });
 };
 
 
-// Generar un reporte de evaluación y progreso
-const generateReport = async (req, res) => {
-    try {
-        const { studentId } = req.params;
-        const evaluationsRef = admin.firestore().collection("evaluations");
-        
-        // Eliminamos el .orderBy("createdAt", "desc") para evitar el problema del índice compuesto
-        const snapshot = await evaluationsRef.where("studentId", "==", studentId).get();
-
-        if (snapshot.empty) {
-            return res.status(404).json({ message: "No se encontraron evaluaciones para este estudiante" });
-        }
-
-        let evaluations = [];
-        snapshot.forEach(doc => {
-            evaluations.push({ id: doc.id, ...doc.data() });
-        });
-
-        res.status(200).json({
-            message: "Reporte generado",
-            studentId,
-            totalEvaluations: evaluations.length,
-            evaluations
-        });
-
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
+// 🔹 Obtener todas las evaluaciones
+const getAllEvaluations = async (req, res) => {
+  try {
+    const snapshot = await admin.firestore().collection("evaluations").get();
+    const evaluations = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    res.status(200).json(evaluations);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
 };
 
-// Exportar funciones
+// 🔹 Obtener una evaluación por ID
+const getEvaluationById = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const doc = await admin.firestore().collection("evaluations").doc(id).get();
+    if (!doc.exists) {
+      return res.status(404).json({ error: "Evaluación no encontrada" });
+    }
+    res.status(200).json({ id: doc.id, ...doc.data() });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// 🔹 Actualizar una evaluación
+const updateEvaluation = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { balanceYEquilibrio, conduccion, equitacionCentrada, comments } = req.body;
+
+    // Preparar datos de actualización, incluyendo selectedExercises en cada objeto
+    const updateData = {
+      balanceYEquilibrio,
+      conduccion,
+      equitacionCentrada,
+      comments,
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    };
+
+    await admin.firestore().collection("evaluations").doc(id).update(updateData);
+    res.status(200).json({ message: "Evaluación actualizada con éxito" });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// 🔹 Eliminar una evaluación
+const deleteEvaluation = async (req, res) => {
+  try {
+    const { id } = req.params;
+    await admin.firestore().collection("evaluations").doc(id).delete();
+    res.status(200).json({ message: "Evaluación eliminada con éxito" });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// 🔹 Obtener métricas del estudiante
+const getStudentMetrics = async (req, res) => {
+  try {
+    const { studentId } = req.params;
+    if (!studentId) {
+      return res.status(400).json({ error: "ID de estudiante requerido" });
+    }
+    
+    const snapshot = await admin.firestore()
+      .collection("evaluations")
+      .where("studentId", "==", studentId)
+      .orderBy("createdAt", "desc")
+      .limit(1)
+      .get();
+
+    if (snapshot.empty) {
+      return res.status(200).json({
+        averageScore: "0.00",
+        metrics: [
+          { name: "Control del caballo", value: "0" },
+          { name: "Postura", value: "0" },
+          { name: "Movimientos corporales", value: "0" },
+          { name: "Control de la respiración", value: "0" },
+        ],
+      });
+    }
+
+    const latest = snapshot.docs[0].data();
+    const metrics = calculateMetrics(latest, latest.lupeLevel);
+    const averageScore = calculateAverageScore(metrics);
+
+    res.status(200).json({ averageScore, metrics });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// Funciones internas para cálculo de métricas
+function calculateMetrics(evaluation, lupeLevel) {
+  let metrics = [];
+  switch (lupeLevel) {
+    case "Amarillo":
+      metrics = [
+        { name: "Equilibrio estático", value: evaluation.balanceYEquilibrio.frecuenciaPractica },
+        { name: "Equilibrio dinámico", value: evaluation.balanceYEquilibrio.frecuenciaPractica * 0.9 },
+        { name: "Control postural", value: evaluation.balanceYEquilibrio.controlPostura * 0.8 },
+        { name: "Estabilidad", value: evaluation.balanceYEquilibrio.movimientosRitmo * 0.7 },
+      ];
+      break;
+    case "Azul":
+      metrics = [
+        { name: "Control del caballo", value: evaluation.conduccion.estadoEmocionalAntes },
+        { name: "Precisión de movimientos", value: evaluation.conduccion.estadoEmocionalDespués * 0.9 },
+        { name: "Comunicación con el caballo", value: evaluation.conduccion.proyeccionEmocional * 0.8 },
+        { name: "Fluidez de movimientos", value: evaluation.conduccion.ritmoRespiracion * 0.7 },
+      ];
+      break;
+    case "Rojo":
+      metrics = [
+        { name: "Postura", value: evaluation.equitacionCentrada.ejerciciosRealizados },
+        { name: "Movimientos corporales", value: evaluation.equitacionCentrada.ejerciciosRealizados * 0.9 },
+        { name: "Respiración", value: evaluation.equitacionCentrada.controlEquilibrio * 0.8 },
+        { name: "Alineamiento", value: evaluation.equitacionCentrada.balancePiernas * 0.7 },
+      ];
+      break;
+  }
+  return metrics;
+}
+
+function calculateAverageScore(metrics) {
+  const total = Object.values(metrics).reduce((sum, v) => sum + parseFloat(v), 0);
+  return (total / Object.values(metrics).length).toFixed(2);
+}
+
+const getPreviousEvaluations = async (req, res) => {
+  try {
+    const { studentId } = req.params;
+    const { range, year, level } = req.query; // puede ser "week" o "month"
+
+    if (!studentId) {
+      return res.status(400).json({ error: 'Student ID is required' });
+    }
+    
+
+    let startDate = null;
+    const now = new Date();
+
+     // Filtrar por rango: semana, mes o año
+     if (range === 'week') {
+      startDate = new Date(now.setDate(now.getDate() - 7));
+    } else if (range === 'month') {
+      startDate = new Date(now.setMonth(now.getMonth() - 1));
+    } else if (range === 'year' && year) {
+      startDate = new Date(`${year}-01-01`);
+    }
+
+    let query = db.collection('evaluations')
+      .where('studentId', '==', studentId)
+      .where('lupeLevel', '==', level) // Filtrar por nivel
+      .orderBy('createdAt', 'desc'); // Ordenar por fecha
+
+      // Si se seleccionó un rango de fechas, aplicar filtro de fecha
+    if (startDate) {
+      query = query.where('createdAt', '>=', admin.firestore.Timestamp.fromDate(startDate));
+    }
+
+    const snapshot = await query.get();
+
+    if (snapshot.empty) {
+      return res.status(200).json([]); // No es error, solo lista vacía
+    }
+
+    const evaluations = snapshot.docs.map(doc => {
+      const data = doc.data();
+      return {
+        id: doc.id,
+        ...data,
+        createdAt: data.createdAt?.toDate?.().toISOString() || null
+      };
+    });
+
+    res.status(200).json(evaluations);
+  } catch (error) {
+    console.error('Error fetching evaluations:', error);
+    res.status(500).json({ error: 'Error fetching evaluations' });
+  }
+};
+
+const getLastEvaluation = async (req, res) => {
+  try {
+    const { uid } = req.params;
+
+    const snapshot = await db
+      .collection('evaluations')
+      .where('studentId', '==', uid)
+      .orderBy('createdAt', 'desc')
+      .limit(1)
+      .get();
+
+    if (snapshot.empty) {
+      return res.status(404).json({ error: 'No hay evaluaciones registradas para este estudiante.' });
+    }
+
+    const doc = snapshot.docs[0];
+    const evalData = doc.data();
+
+    // 🔧 Convertir métricas de strings a números válidos
+    const rawRatings = evalData.metrics || evalData.ratings || {};
+    const cleanRatings = {};
+
+    Object.entries(rawRatings).forEach(([key, val]) => {
+      const numberVal = parseInt(val, 10);
+      if (!isNaN(numberVal)) {
+        cleanRatings[key] = numberVal;
+      }
+    });
+
+    const response = {
+      studentInfo: {
+        name: evalData.studentName || 'Estudiante',
+        lupeLevel: evalData.lupeLevel || 'N/A',
+      },
+      ratings: cleanRatings,
+      exercises: Object.keys(cleanRatings),
+      averageScore: evalData.averageScore || '0.00',
+      comments: evalData.comments || '',  // <--- Aquí
+      imageUrl: evalData.imageUrl || '',
+    };
+
+    return res.status(200).json(response);
+  } catch (error) {
+    console.error('❌ Error al obtener última evaluación:', error);
+    return res.status(500).json({ error: 'Error del servidor al consultar la evaluación.' });
+  }
+};
+
+// ✅ Backend - evaluaciónController.js
+const getStudentPoints = async (req, res) => {
+  try {
+    const { studentId } = req.params;
+
+    const evalSnap = await db.collection("evaluations")
+      .where("studentId", "==", studentId)
+      .get();
+
+    const totalPoints = evalSnap.size * 10; // 10 puntos por evaluación
+
+    // Restar los puntos canjeados
+    const redemptionsSnap = await db.collection("redemptions")
+      .where("studentId", "==", studentId)
+      .get();
+
+    let redeemedPoints = 0;
+    redemptionsSnap.forEach(doc => {
+      const data = doc.data();
+      redeemedPoints += data.pointsUsed || 0;
+    });
+
+    const availablePoints = totalPoints - redeemedPoints;
+
+    return res.status(200).json({ points: Math.max(0, availablePoints) });
+  } catch (error) {
+    console.error("Error al calcular puntos del estudiante:", error);
+    return res.status(500).json({ error: "Error interno del servidor" });
+  }
+};
+
+
+// GET historial general del estudiante
+const getHistorialExtras = async (req, res) => {
+  try {
+    const { studentId } = req.params;
+    const docRef = admin.firestore().collection('historialExtras').doc(studentId);
+    const doc = await docRef.get();
+
+    if (!doc.exists) {
+      return res.status(200).json({ comentarios: '', imagenUrl: '' });
+    }
+
+    return res.status(200).json(doc.data());
+  } catch (error) {
+    return res.status(500).json({ error: error.message });
+  }
+};
+
+
+const updateHistorialExtras = async (req, res) => {
+  try {
+    const { studentId } = req.params;
+    const { comentarios, imagenUrl } = req.body;
+
+    const docRef = admin.firestore().collection('historialExtras').doc(studentId);
+    await docRef.set(
+      {
+        ...(comentarios !== undefined && { comentarios }),
+        ...(imagenUrl !== undefined && { imagenUrl }),
+      },
+      { merge: true }
+    );
+
+    return res.status(200).json({ message: 'Historial actualizado' });
+  } catch (error) {
+    return res.status(500).json({ error: error.message });
+  }
+};
+
+const getLastEvaluationWithExtras = async (req, res) => {
+  try {
+    const { uid } = req.params;
+
+    // Obtener última evaluación
+    const snapshot = await db
+      .collection('evaluations')
+      .where('studentId', '==', uid)
+      .orderBy('createdAt', 'desc')
+      .limit(1)
+      .get();
+
+    let lastEvalData = null;
+    if (!snapshot.empty) {
+      const doc = snapshot.docs[0];
+      const evalData = doc.data();
+
+      // Convertir métricas a números
+      const rawRatings = evalData.metrics || evalData.ratings || {};
+      const cleanRatings = {};
+      Object.entries(rawRatings).forEach(([key, val]) => {
+        const numberVal = parseInt(val, 10);
+        if (!isNaN(numberVal)) {
+          cleanRatings[key] = numberVal;
+        }
+      });
+
+      lastEvalData = {
+        studentInfo: {
+          name: evalData.studentName || 'Estudiante',
+          lupeLevel: evalData.lupeLevel || 'N/A',
+        },
+        ratings: cleanRatings,
+        exercises: Object.keys(cleanRatings),
+        averageScore: evalData.averageScore || '0.00',
+        comments: evalData.comments || '',
+        imageUrl: evalData.imageUrl || '',
+      };
+    } else {
+      lastEvalData = null;
+    }
+
+    // Obtener historial extras
+    const histDoc = await db.collection('historialExtras').doc(uid).get();
+    const historialExtras = histDoc.exists ? histDoc.data() : { comentarios: '', imagenUrl: '' };
+
+    return res.status(200).json({
+      lastEvaluation: lastEvalData,
+      historialExtras,
+    });
+  } catch (error) {
+    console.error('Error al obtener última evaluación con extras:', error);
+    return res.status(500).json({ error: 'Error del servidor al consultar la evaluación y extras.' });
+  }
+};
+
+
 module.exports = {
-    registerEvaluation,
-    getPerformanceMetrics,
-    generateReport
+  registerEvaluation,
+  getAllEvaluations,
+  getEvaluationById,
+  updateEvaluation,
+  deleteEvaluation,
+  getStudentMetrics,
+  getPreviousEvaluations,
+  getExercisesByLevel,
+  getMetricsByLevel,
+  getLastEvaluation,
+  getStudentPoints,
+  getHistorialExtras,
+  updateHistorialExtras,
+getLastEvaluationWithExtras,
 };
-
